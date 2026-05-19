@@ -133,6 +133,43 @@ async function getSearchHistory(req, res) {
   }
 }
 
+async function getDbData(req, res) {
+  const { jan } = req.query;
+  if (!jan) return res.status(400).json({ error: 'janパラメータが必要です' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.*, s.searched_at AS search_date
+       FROM rakuten_items r
+       JOIN jan_searches s ON s.id = r.search_id
+       WHERE r.jan_code = $1
+       ORDER BY r.created_at DESC`,
+      [jan]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'データ取得中にエラーが発生しました' });
+  }
+}
+
+async function getItemName(req, res) {
+  const { jan } = req.query;
+  if (!jan) return res.status(400).json({ error: 'janパラメータが必要です' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT item_name
+       FROM rakuten_items
+       WHERE jan_code = $1
+       ORDER BY item_name`,
+      [jan]
+    );
+    res.json(rows.map(r => r.item_name));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'データ取得中にエラーが発生しました' });
+  }
+}
+
 async function debugRakuten(req, res) {
   const jan = req.query.jan || '4904530125775';
   const url = new URL(RAKUTEN_API);
@@ -151,4 +188,4 @@ async function debugRakuten(req, res) {
   res.json({ requestUrl: url.toString().replace(process.env.RAKUTEN_ACCESS_KEY, '***'), status, data });
 }
 
-module.exports = { searchByJan, getItems, getItemsByJan, getSearchHistory, debugRakuten };
+module.exports = { searchByJan, getItems, getItemsByJan, getSearchHistory, getDbData, getItemName, debugRakuten };
