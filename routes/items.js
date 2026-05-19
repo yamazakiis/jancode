@@ -21,11 +21,13 @@ async function searchByJan(req, res) {
       url.searchParams.set('affiliateId', affiliateId);
     }
 
-    const apiRes = await fetch(url.toString());
+    const apiRes = await fetch(url.toString(), {
+      headers: { Referer: process.env.APP_URL || 'https://jancode-theta.vercel.app/' },
+    });
     const data = await apiRes.json();
 
-    if (data.error) {
-      return res.status(400).json({ error: data.error_description || data.error, _raw: data });
+    if (!apiRes.ok || data.errors) {
+      return res.status(400).json({ error: data.errors?.errorMessage || 'Rakuten API error', _raw: data });
     }
 
     // formatVersion=2 ではフラット構造: data.items[i].itemName
@@ -135,7 +137,9 @@ async function debugRakuten(req, res) {
   url.searchParams.set('accessKey', process.env.RAKUTEN_ACCESS_KEY);
   url.searchParams.set('hits', '5');
   url.searchParams.set('formatVersion', '2');
-  const apiRes = await fetch(url.toString());
+  const apiRes = await fetch(url.toString(), {
+    headers: { Referer: process.env.APP_URL || 'https://jancode-theta.vercel.app/' },
+  });
   const data = await apiRes.json();
   res.json({ requestUrl: url.toString().replace(process.env.RAKUTEN_ACCESS_KEY, '***'), status: apiRes.status, data });
 }
