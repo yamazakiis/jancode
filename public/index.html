@@ -137,6 +137,57 @@
     tr:hover td { background: #fafafa; }
     .jan-link { color: #bf0000; cursor: pointer; text-decoration: underline; }
 
+    .btn-outline {
+      padding: 8px 18px;
+      border: 2px solid #bf0000;
+      background: #fff;
+      color: #bf0000;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .btn-outline:hover { background: #fff0f0; }
+
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 860px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid #eee;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+    .modal-close {
+      background: none; border: none; font-size: 1.1rem;
+      cursor: pointer; color: #888; padding: 0 4px;
+    }
+    .modal-close:hover { color: #333; }
+    .modal-pre {
+      font-size: 0.75rem;
+      padding: 16px 18px;
+      overflow: auto;
+      flex: 1;
+      margin: 0;
+      background: #f8f8f8;
+      border-radius: 0 0 8px 8px;
+    }
+
     .empty { text-align: center; color: #aaa; padding: 40px; }
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #bf0000; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -166,7 +217,20 @@
   </div>
 
   <div id="panel-results" class="panel active">
+    <div id="dbJsonBtn" style="display:none; margin-bottom:12px;">
+      <button class="btn-outline" onclick="showDbJson()">DBのデータをJSONで表示</button>
+    </div>
     <div id="resultsContainer" class="empty">検索するとここに結果が表示されます</div>
+  </div>
+
+  <div id="jsonModal" class="modal-overlay" style="display:none;" onclick="closeModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modalTitle">DB保存データ (JSON)</span>
+        <button class="modal-close" onclick="document.getElementById('jsonModal').style.display='none'">✕</button>
+      </div>
+      <pre id="modalJson" class="modal-pre"></pre>
+    </div>
   </div>
 
   <div id="panel-history" class="panel">
@@ -218,6 +282,7 @@
 
       setStatus(`${data.count} 件見つかりました（DBに保存済み）`, false);
       renderItems(data.items, 'resultsContainer');
+      document.getElementById('dbJsonBtn').style.display = 'block';
     } catch (e) {
       setStatus('通信エラー: ' + e.message, true);
     } finally {
@@ -328,6 +393,29 @@
   function esc(str) {
     return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+
+  async function showDbJson() {
+    const jan = document.getElementById('janInput').value.trim();
+    if (!jan) return;
+    document.getElementById('modalTitle').textContent = `DB保存データ JAN: ${jan}`;
+    document.getElementById('modalJson').textContent = '読み込み中...';
+    document.getElementById('jsonModal').style.display = 'flex';
+    try {
+      const res = await fetch(`/api/items/${jan}`);
+      const rows = await res.json();
+      document.getElementById('modalJson').textContent = JSON.stringify(rows, null, 2);
+    } catch (e) {
+      document.getElementById('modalJson').textContent = 'エラー: ' + e.message;
+    }
+  }
+
+  function closeModal(e) {
+    if (e.target.id === 'jsonModal') document.getElementById('jsonModal').style.display = 'none';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('jsonModal').style.display = 'none';
+  });
 
   document.getElementById('janInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') doSearch();
