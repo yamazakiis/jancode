@@ -1,6 +1,10 @@
 const { pool } = require('../db');
+const axios = require('axios');
 
 const RAKUTEN_API = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401';
+
+const APP_URL = process.env.APP_URL || 'https://jancode-theta.vercel.app/';
+const RAKUTEN_HEADERS = { Referer: APP_URL, Origin: APP_URL };
 
 async function searchByJan(req, res) {
   const { janCode } = req.body;
@@ -21,15 +25,15 @@ async function searchByJan(req, res) {
       url.searchParams.set('affiliateId', affiliateId);
     }
 
-    const apiRes = await fetch(url.toString(), {
-      headers: {
-        Referer: process.env.APP_URL || 'https://jancode-theta.vercel.app/',
-        Origin: process.env.APP_URL || 'https://jancode-theta.vercel.app/',
-      },
-    });
-    const data = await apiRes.json();
+    let data;
+    try {
+      ({ data } = await axios.get(url.toString(), { headers: RAKUTEN_HEADERS }));
+    } catch (axiosErr) {
+      const errData = axiosErr.response?.data;
+      return res.status(400).json({ error: errData?.errors?.errorMessage || 'Rakuten API error', _raw: errData });
+    }
 
-    if (!apiRes.ok || data.errors) {
+    if (data.errors) {
       return res.status(400).json({ error: data.errors?.errorMessage || 'Rakuten API error', _raw: data });
     }
 
@@ -140,11 +144,14 @@ async function debugRakuten(req, res) {
   url.searchParams.set('accessKey', process.env.RAKUTEN_ACCESS_KEY);
   url.searchParams.set('hits', '5');
   url.searchParams.set('formatVersion', '2');
-  const apiRes = await fetch(url.toString(), {
-    headers: { Referer: process.env.APP_URL || 'https://jancode-theta.vercel.app/' },
-  });
-  const data = await apiRes.json();
-  res.json({ requestUrl: url.toString().replace(process.env.RAKUTEN_ACCESS_KEY, '***'), status: apiRes.status, data });
+  let data, status;
+  try {
+    ({ data, status } = await axios.get(url.toString(), { headers: RAKUTEN_HEADERS }));
+  } catch (axiosErr) {
+    data = axiosErr.response?.data;
+    status = axiosErr.response?.status;
+  }
+  res.json({ requestUrl: url.toString().replace(process.env.RAKUTEN_ACCESS_KEY, '***'), status, data });
 }
 
 module.exports = { searchByJan, getItems, getItemsByJan, getSearchHistory, debugRakuten };
