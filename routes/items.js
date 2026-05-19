@@ -37,11 +37,8 @@ async function searchByJan(req, res) {
       return res.status(400).json({ error: data.errors?.errorMessage || 'Rakuten API error', _raw: data });
     }
 
-    // formatVersion=2 ではフラット構造: data.items[i].itemName
-    const rawItems = data.items || [];
-    if (rawItems.length === 0) {
-      return res.json({ searchId: null, count: 0, items: [], _debug: data });
-    }
+    // 新APIは formatVersion=2 でもキーは Items（大文字）
+    const rawItems = data.Items || [];
 
     // 検索履歴を記録
     const { rows } = await pool.query(
