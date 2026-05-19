@@ -25,11 +25,14 @@ async function searchByJan(req, res) {
     const data = await apiRes.json();
 
     if (data.error) {
-      return res.status(400).json({ error: data.error_description || data.error });
+      return res.status(400).json({ error: data.error_description || data.error, _raw: data });
     }
 
     // formatVersion=2 ではフラット構造: data.items[i].itemName
     const rawItems = data.items || [];
+    if (rawItems.length === 0) {
+      return res.json({ searchId: null, count: 0, items: [], _debug: data });
+    }
 
     // 検索履歴を記録
     const { rows } = await pool.query(
