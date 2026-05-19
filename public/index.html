@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JANコード検索</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f5f5f5; color: #333; }
+
+    header {
+      background: #bf0000;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { margin: 0; font-size: 1.3rem; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    .search-box {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08);
+      margin-bottom: 24px;
+    }
+    .search-box h2 { margin: 0 0 16px; font-size: 1rem; color: #555; }
+    .search-row { display: flex; gap: 8px; }
+    .search-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .search-row input:focus { outline: none; border-color: #bf0000; }
+    .search-row button {
+      padding: 10px 24px;
+      background: #bf0000;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .search-row button:hover { background: #990000; }
+    .search-row button:disabled { background: #aaa; cursor: not-allowed; }
+
+    #status { margin-top: 10px; font-size: 0.9rem; min-height: 20px; }
+    .status-ok  { color: #2a7a2a; }
+    .status-err { color: #cc0000; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    .tab {
+      padding: 8px 20px;
+      border-radius: 6px 6px 0 0;
+      background: #ddd;
+      cursor: pointer;
+      font-size: 0.9rem;
+      border: none;
+    }
+    .tab.active { background: #fff; font-weight: bold; border-bottom: 2px solid #fff; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* 検索結果グリッド */
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .item-card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08);
+      overflow: hidden;
+      transition: transform .15s;
+    }
+    .item-card:hover { transform: translateY(-2px); }
+    .item-card img {
+      width: 100%;
+      height: 180px;
+      object-fit: contain;
+      background: #f9f9f9;
+      border-bottom: 1px solid #eee;
+    }
+    .item-card-body { padding: 12px; }
+    .item-name {
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin: 0 0 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .item-shop { font-size: 0.75rem; color: #777; margin: 0 0 6px; }
+    .item-price { font-size: 1.1rem; color: #cc0000; font-weight: bold; margin: 0 0 6px; }
+    .item-review { font-size: 0.75rem; color: #f5a623; margin: 0 0 8px; }
+    .item-link {
+      display: inline-block;
+      font-size: 0.8rem;
+      color: #fff;
+      background: #bf0000;
+      padding: 4px 12px;
+      border-radius: 4px;
+      text-decoration: none;
+    }
+    .item-link:hover { background: #990000; }
+
+    /* 詳細データ */
+    details { margin-top: 8px; }
+    details summary { font-size: 0.75rem; color: #888; cursor: pointer; }
+    pre.raw {
+      font-size: 0.7rem;
+      background: #f5f5f5;
+      padding: 8px;
+      border-radius: 4px;
+      overflow: auto;
+      max-height: 200px;
+      margin: 4px 0 0;
+    }
+
+    /* 検索履歴テーブル */
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+    th { background: #bf0000; color: #fff; padding: 10px 14px; text-align: left; font-size: 0.85rem; }
+    td { padding: 10px 14px; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+    .jan-link { color: #bf0000; cursor: pointer; text-decoration: underline; }
+
+    .empty { text-align: center; color: #aaa; padding: 40px; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #bf0000; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><rect x="2" y="3" width="2" height="18"/><rect x="6" y="3" width="1" height="18"/><rect x="9" y="3" width="2" height="18"/><rect x="13" y="3" width="1" height="18"/><rect x="16" y="3" width="3" height="18"/><rect x="21" y="3" width="1" height="18"/></svg>
+  <h1>楽天 JANコード検索</h1>
+</header>
+
+<div class="container">
+  <div class="search-box">
+    <h2>JANコード（8〜13桁）を入力して楽天APIで商品を検索・保存</h2>
+    <div class="search-row">
+      <input id="janInput" type="text" placeholder="例: 4904810301400" maxlength="13" inputmode="numeric" />
+      <button id="searchBtn" onclick="doSearch()">検索</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('results')">検索結果</button>
+    <button class="tab" onclick="switchTab('history')">検索履歴</button>
+    <button class="tab" onclick="switchTab('all')">保存済み一覧</button>
+  </div>
+
+  <div id="panel-results" class="panel active">
+    <div id="resultsContainer" class="empty">検索するとここに結果が表示されます</div>
+  </div>
+
+  <div id="panel-history" class="panel">
+    <div id="historyContainer" class="empty">読み込み中...</div>
+  </div>
+
+  <div id="panel-all" class="panel">
+    <div id="allContainer" class="empty">読み込み中...</div>
+  </div>
+</div>
+
+<script>
+  const tabs = {};
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      const names = ['results', 'history', 'all'];
+      t.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'history') loadHistory();
+    if (name === 'all') loadAll();
+  }
+
+  function setStatus(msg, isErr) {
+    const el = document.getElementById('status');
+    el.innerHTML = msg;
+    el.className = isErr ? 'status-err' : 'status-ok';
+  }
+
+  async function doSearch() {
+    const jan = document.getElementById('janInput').value.trim();
+    if (!jan) { setStatus('JANコードを入力してください', true); return; }
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    setStatus('<span class="spinner"></span> 検索中...', false);
+    document.getElementById('resultsContainer').innerHTML = '';
+
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ janCode: jan }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setStatus(data.error || 'エラーが発生しました', true); return; }
+
+      setStatus(`${data.count} 件見つかりました（DBに保存済み）`, false);
+      renderItems(data.items, 'resultsContainer');
+    } catch (e) {
+      setStatus('通信エラー: ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function stars(avg) {
+    if (!avg) return '';
+    const full = Math.round(avg);
+    return '★'.repeat(full) + '☆'.repeat(5 - full) + ` ${Number(avg).toFixed(2)}`;
+  }
+
+  function renderItems(items, containerId) {
+    const el = document.getElementById(containerId);
+    if (!items.length) { el.innerHTML = '<div class="empty">該当商品がありませんでした</div>'; return; }
+
+    el.innerHTML = '<div class="items-grid">' + items.map(item => {
+      const img = item.mediumImageUrls?.[0]?.imageUrl || item.smallImageUrls?.[0]?.imageUrl || '';
+      const price = item.itemPrice ? `¥${Number(item.itemPrice).toLocaleString()}` : '価格不明';
+      const raw = JSON.stringify(item, null, 2).replace(/</g, '&lt;');
+      return `
+        <div class="item-card">
+          ${img ? `<img src="${img}" alt="" loading="lazy" />` : '<div style="height:180px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#bbb">NO IMAGE</div>'}
+          <div class="item-card-body">
+            <p class="item-name">${esc(item.itemName)}</p>
+            <p class="item-shop">${esc(item.shopName)}</p>
+            <p class="item-price">${price}</p>
+            ${item.reviewAverage ? `<p class="item-review">${stars(item.reviewAverage)} (${item.reviewCount}件)</p>` : ''}
+            <a class="item-link" href="${item.itemUrl}" target="_blank" rel="noopener">楽天で見る</a>
+            <details>
+              <summary>全データ (JSON)</summary>
+              <pre class="raw">${raw}</pre>
+            </details>
+          </div>
+        </div>`;
+    }).join('') + '</div>';
+  }
+
+  function renderDBItems(rows, containerId) {
+    const el = document.getElementById(containerId);
+    if (!rows.length) { el.innerHTML = '<div class="empty">データがありません</div>'; return; }
+
+    el.innerHTML = '<div class="items-grid">' + rows.map(row => {
+      const price = row.item_price ? `¥${Number(row.item_price).toLocaleString()}` : '価格不明';
+      const raw = JSON.stringify(row.raw_data, null, 2).replace(/</g, '&lt;');
+      return `
+        <div class="item-card">
+          ${row.image_url ? `<img src="${row.image_url}" alt="" loading="lazy" />` : '<div style="height:180px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#bbb">NO IMAGE</div>'}
+          <div class="item-card-body">
+            <p class="item-name">${esc(row.item_name)}</p>
+            <p class="item-shop">${esc(row.shop_name)}</p>
+            <p class="item-price">${price}</p>
+            ${row.review_average ? `<p class="item-review">${stars(row.review_average)} (${row.review_count}件)</p>` : ''}
+            <p style="font-size:0.7rem;color:#999">JAN: ${row.jan_code}</p>
+            <a class="item-link" href="${row.item_url}" target="_blank" rel="noopener">楽天で見る</a>
+            <details>
+              <summary>全データ (JSON)</summary>
+              <pre class="raw">${raw}</pre>
+            </details>
+          </div>
+        </div>`;
+    }).join('') + '</div>';
+  }
+
+  async function loadHistory() {
+    const el = document.getElementById('historyContainer');
+    el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    try {
+      const res = await fetch('/api/history');
+      const rows = await res.json();
+      if (!rows.length) { el.innerHTML = '<div class="empty">履歴がありません</div>'; return; }
+      el.innerHTML = `
+        <table>
+          <thead><tr><th>JANコード</th><th>検索日時</th><th>件数</th></tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><span class="jan-link" onclick="searchJan('${r.jan_code}')">${r.jan_code}</span></td>
+                <td>${new Date(r.searched_at).toLocaleString('ja-JP')}</td>
+                <td>${r.item_count} 件</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      el.innerHTML = '<div class="empty">読み込み失敗: ' + e.message + '</div>';
+    }
+  }
+
+  async function loadAll() {
+    const el = document.getElementById('allContainer');
+    el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    try {
+      const res = await fetch('/api/items');
+      const rows = await res.json();
+      renderDBItems(rows, 'allContainer');
+    } catch (e) {
+      el.innerHTML = '<div class="empty">読み込み失敗: ' + e.message + '</div>';
+    }
+  }
+
+  function searchJan(jan) {
+    document.getElementById('janInput').value = jan;
+    switchTab('results');
+    doSearch();
+  }
+
+  function esc(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  document.getElementById('janInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+  });
+</script>
+</body>
+</html>
