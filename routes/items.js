@@ -22,7 +22,10 @@ async function searchByJan(req, res) {
     }
 
     const apiRes = await fetch(url.toString(), {
-      headers: { Referer: process.env.APP_URL || 'https://jancode-theta.vercel.app/' },
+      headers: {
+        Referer: process.env.APP_URL || 'https://jancode-theta.vercel.app/',
+        Origin: process.env.APP_URL || 'https://jancode-theta.vercel.app/',
+      },
     });
     const data = await apiRes.json();
 
