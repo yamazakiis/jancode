@@ -1,6 +1,6 @@
 const { pool } = require('../db');
 
-const RAKUTEN_API = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706';
+const RAKUTEN_API = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401';
 
 async function searchByJan(req, res) {
   const { janCode } = req.body;
@@ -11,10 +11,15 @@ async function searchByJan(req, res) {
 
   try {
     const url = new URL(RAKUTEN_API);
-    url.searchParams.set('format', 'json');
     url.searchParams.set('keyword', jan);
     url.searchParams.set('applicationId', process.env.RAKUTEN_APP_ID);
+    url.searchParams.set('accessKey', process.env.RAKUTEN_ACCESS_KEY);
     url.searchParams.set('hits', '30');
+    url.searchParams.set('formatVersion', '2');
+    const affiliateId = process.env.RAKUTEN_AFFILIATE_ID || process.env.RAKUTEN_affiliate_id;
+    if (affiliateId) {
+      url.searchParams.set('affiliateId', affiliateId);
+    }
 
     const apiRes = await fetch(url.toString());
     const data = await apiRes.json();
@@ -23,7 +28,8 @@ async function searchByJan(req, res) {
       return res.status(400).json({ error: data.error_description || data.error });
     }
 
-    const rawItems = data.Items || [];
+    // formatVersion=2 ではフラット構造: data.items[i].itemName
+    const rawItems = data.items || [];
 
     // 検索履歴を記録
     const { rows } = await pool.query(
@@ -33,10 +39,10 @@ async function searchByJan(req, res) {
     const searchId = rows[0].id;
 
     // 取得した全商品を保存
-    for (const { Item } of rawItems) {
+    for (const item of rawItems) {
       const imageUrl =
-        Item.mediumImageUrls?.[0]?.imageUrl ||
-        Item.smallImageUrls?.[0]?.imageUrl ||
+        item.mediumImageUrls?.[0]?.imageUrl ||
+        item.smallImageUrls?.[0]?.imageUrl ||
         null;
 
       await pool.query(
@@ -47,21 +53,21 @@ async function searchByJan(req, res) {
         [
           searchId,
           jan,
-          Item.itemCode,
-          Item.itemName,
-          Item.shopName,
-          Item.shopCode,
-          Item.itemPrice,
-          Item.reviewAverage || null,
-          Item.reviewCount || 0,
-          Item.itemUrl,
+          item.itemCode,
+          item.itemName,
+          item.shopName,
+          item.shopCode,
+          item.itemPrice,
+          item.reviewAverage || null,
+          item.reviewCount || 0,
+          item.itemUrl,
           imageUrl,
-          Item,
+          item,
         ]
       );
     }
 
-    res.json({ searchId, count: rawItems.length, items: rawItems.map((i) => i.Item) });
+    res.json({ searchId, count: rawItems.length, items: rawItems });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '検索中にエラーが発生しました' });
