@@ -127,4 +127,17 @@ async function getSearchHistory(req, res) {
   }
 }
 
-module.exports = { searchByJan, getItems, getItemsByJan, getSearchHistory };
+async function debugRakuten(req, res) {
+  const jan = req.query.jan || '4904530125775';
+  const url = new URL(RAKUTEN_API);
+  url.searchParams.set('keyword', jan);
+  url.searchParams.set('applicationId', process.env.RAKUTEN_APP_ID);
+  url.searchParams.set('accessKey', process.env.RAKUTEN_ACCESS_KEY);
+  url.searchParams.set('hits', '5');
+  url.searchParams.set('formatVersion', '2');
+  const apiRes = await fetch(url.toString());
+  const data = await apiRes.json();
+  res.json({ requestUrl: url.toString().replace(process.env.RAKUTEN_ACCESS_KEY, '***'), status: apiRes.status, data });
+}
+
+module.exports = { searchByJan, getItems, getItemsByJan, getSearchHistory, debugRakuten };

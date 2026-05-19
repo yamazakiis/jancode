@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { initDB } = require('./db');
-const { searchByJan, getItems, getItemsByJan, getSearchHistory } = require('./routes/items');
+const { searchByJan, getItems, getItemsByJan, getSearchHistory, debugRakuten } = require('./routes/items');
 
 const app = express();
 app.use(express.json());
@@ -12,6 +12,7 @@ app.post('/api/search', searchByJan);
 app.get('/api/items', getItems);
 app.get('/api/items/:jan', getItemsByJan);
 app.get('/api/history', getSearchHistory);
+app.get('/api/debug', debugRakuten);
 
 // DB を一度だけ初期化（サーバーレス環境でのウォームキープ対応）
 let _dbInit;
